@@ -1,0 +1,1045 @@
+---
+title: "Readequação dos Limites de Velocidade"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+ 
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+options(Encoding="UTF-8")
+options("scipen"=10000, "digits"=6)
+
+```
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(plotly)
+library(sf)
+library(OpenStreetMap)
+library(viridis)
+library(metR)
+library(readxl)
+library(RColorBrewer)
+library(chron)
+
+options(Encoding="UTF-8")
+options(scipen = 999999)
+```
+
+Fortaleza {data-icon="fa-home"}
+=====================================
+
+Row 
+-----------------------------------------------------------------------
+### de Área Territorial
+
+```{r}
+
+expr <- paste0("314.930", " Km2")
+
+valueBox(expr, icon = "fa-chart-area",
+        color = "purple"
+      )
+```
+
+### é de sua localização
+
+```{r}
+valueBox(paste0("O Ceará"), icon = "fa-layer-group", color = "green"
+      )
+```
+
+### é sua Região Geográfica
+
+```{r}
+ valueBox(
+        "O Nordeste", icon = "fa-arrow-up-short-wide",
+        color = "yellow"
+      )
+```
+
+### mais rica em PIB
+
+
+```{r}
+ valueBox(
+        "8ª capital", icon = "fa-list-check",
+        color = "blue"
+      )
+```
+
+
+Row 
+-------------------------------------
+   
+### Mapa de Fortaleza - Bairros
+
+```{r}
+fort <- st_read(
+  "E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\Bairros_de_Fortaleza\\vw_Fortaleza_Bairros.shp", quiet = TRUE, options = "ENCODING=WINDOWS-1252")
+
+fort_reg <- st_read(
+  "E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\Secretarias_Executivas_Regionais\\fort_reg_pop_2010.shp", quiet = TRUE, options = "ENCODING=WINDOWS-1252")
+
+## Escolher o OSM Map ####
+lat1 = st_bbox(fort)[2]; lat2 = st_bbox(fort)[4]
+lon1= st_bbox(fort)[1]; lon2= st_bbox(fort)[3]
+                 
+map = openmap(c(lat2, lon1), c(lat1, lon2), type = "osm")
+                 
+#map=openproj(map)
+map.latlon <- openproj(map, projection = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+                 
+g <- OpenStreetMap::autoplot.OpenStreetMap(map.latlon)
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort, fill = NA, color = "black", lwd = 1, inherit.aes = FALSE) +
+  labs(title = "Mapa do Município de Fortaleza") +  
+  coord_sf(datum = st_crs(fort)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0))
+
+
+```
+
+### Mapa de Fortaleza - Zonas Administrativas
+
+```{r}
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort_reg, fill = NA, color = "black", lwd = 1, inherit.aes = FALSE) +
+  labs(title = "Mapa do Município de Fortaleza") +  
+  coord_sf(datum = st_crs(fort)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0))
+```
+
+População {data-icon="fa-user-group"}
+=====================================
+
+
+Row
+-----------------------------------------------------------------------
+### é a População atual
+
+```{r}
+pop <- "2.428.708 Hab"
+valueBox(pop, icon = "fa-people-group", color = "cyan")
+```
+
+### é a Densidade Demográfica atual
+
+```{r}
+dens <- "7.775,52 Hab/Km2"
+valueBox(dens, icon = "fa-users-rectangle", color = "steelblue")
+```
+
+
+Row 
+-------------------------------------
+   
+### Distribuição da População por Bairros
+
+```{r}
+
+nome_bairro_df <- st_read(
+"E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\Bairros_de_Fortaleza\\pop_fort_2010.shp", quiet = TRUE, options = "ENCODING=WINDOWS-1252")
+
+nome_bairro_df <- nome_bairro_df %>% select(pçe2010) %>% mutate(Classes = case_when(
+  pçe2010 < 10000 ~ "0 - 10K",
+  pçe2010 >= 10000 & pçe2010 < 20000 ~ "10K - 20k",
+  pçe2010 >= 20000 & pçe2010 < 30000 ~ "20K - 30K",
+  pçe2010 >= 30000 & pçe2010 < 40000 ~ "30K - 40K",
+  pçe2010 >= 40000 & pçe2010 < 50000 ~ "40K - 50k",
+  pçe2010 >= 50000  ~ "+ 50k")) 
+
+nome_bairro_df <- nome_bairro_df %>% mutate(Classes = factor(Classes, levels = c("0 - 10K", "10K - 20k", "20K - 30K", "30K - 40K", "40K - 50k", "+ 50k")))
+
+#nome_bairro_df %>% filter(is.na(Classes))
+
+#names(nome_bairro_df)
+
+#nome_bairro_df %>% group_by(SERg.8.) %>% summarise(Pop = sum(pçe2010))
+
+#nome_bairro_df %>% select(4,8) %>% group_by(SERg.8.) %>% count() %>% select(n)
+
+#nome_bairro_df %>% select(4,8) %>% group_by(SERg.8.) %>% summarise(Pop = sum(1, na.rm=T))
+
+#fort_reg %>% group_by(SERg.8.) %>% count()
+
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = nome_bairro_df, aes(fill = Classes), color = "black", inherit.aes = FALSE) +
+  labs(title = "Mapa do Município de Fortaleza", subtitle = "População por Bairro", fill = "População(2010)") +  
+  scale_fill_viridis(discrete = TRUE, option = "D")  +
+  coord_sf(datum = st_crs(fort)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0))
+
+```   
+
+### Distribuição da População por Secretarias Regionais
+
+```{r}
+fort_reg_pop <- st_read("E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\Secretarias_Executivas_Regionais\\fort_reg_pop_2010.shp", quiet = TRUE, options = "ENCODING=WINDOWS-1252")
+
+#fort_reg_pop %>% select(Pop)  %>% st_drop_geometry() %>% summary()
+#fort_reg_pop %>% select(Pop)  %>% st_drop_geometry()
+
+
+fort_reg_pop <- fort_reg_pop %>% select(Pop) %>% mutate(Classes = case_when(
+  Pop < 100000 ~ "0 - 100K",
+  Pop >= 100000 & Pop < 200000 ~ "100K - 200k",
+  Pop >= 200000 & Pop < 300000 ~ "200K - 300K",
+  Pop >= 300000  ~ "+ 300k")) 
+
+fort_reg_pop <- fort_reg_pop %>% mutate(Classes = factor(Classes, levels = c("0 - 100K", "100K - 200k", "200K - 300K", "+ 300k")))
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort_reg_pop, aes(fill = Classes), color = "black", inherit.aes = FALSE) +
+  labs(title = "Mapa do Município de Fortaleza", subtitle = "População por Secretaria Regional", fill = "População(2010)") + 
+  scale_fill_viridis(option = "D", discrete = T) +
+  coord_sf(datum = st_crs(fort)) +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0))
+
+```
+
+
+Sistema Viário {data-icon="fa-car-side"}
+=====================================
+
+
+Row
+-----------------------------------------------------------------------
+
+### é sua Frota atual
+
+```{r}
+frota <- "1.254.656 veic."
+valueBox(frota, icon = "fa-car", color = "orange")
+```
+
+### de Malha Viária
+
+```{r}
+malha <- "4.400 Km"
+valueBox(malha, 
+         icon = "fa-road",
+         color = "blue")
+```
+
+
+
+Row 
+-------------------------------------
+
+### Malha Viária
+
+```{r}
+vias_class <- read_sf("E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\Classificação_de_Logradouro\\vw_ClassificacaoLogradouros.shp", quiet = TRUE, options = "ENCODING=UTF-8")
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort, color = "black", fill = NA, inherit.aes = FALSE) +
+  geom_sf(data = vias_class, aes(color = classif_vi), fill = NA, inherit.aes = FALSE) +
+  labs(title = "Mapa do Município de Fortaleza", subtitle = "Malha Viária", color = "Classificação") + 
+  scale_fill_viridis(option = "D", discrete = T) +
+  coord_sf(datum = st_crs(fort)) +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0))
+
+```      
+
+
+### Classificação Antiga da Malha Viária
+
+```{r}
+
+vias_fort <- st_read(
+  "E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\Vias_Arteriais\\vw_ViasArteriais.shp", quiet = TRUE, options = "ENCODING=WINDOWS-1252")
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort, fill = NA, color = "black", inherit.aes = FALSE) +
+  geom_sf(data = vias_fort, aes(color = tipo), lwd = 2,  fill = NA, inherit.aes = FALSE) + 
+  labs(title = "Mapa do Município de Fortaleza", subtitle = "Malha Viária", color = "Vias Arteriais") +  
+  coord_sf(datum = st_crs(fort)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0))
+
+    
+```
+
+
+Sinistros {data-icon="fa-car-burst"}
+=====================================
+
+```{r}
+#dat <- read_excel("E:\\Docs\\Mestrado_Petran\\sinistros_fortaleza_atualizado_26Mai2024.xlsx")
+
+dat <- read_excel("E:\\Docs\\Mestrado_Petran\\sinistros_fortaleza_atualizado_19Jul2024.xlsx")
+
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### é o Número Total de Sinistros em Fortaleza 
+
+```{r}
+sin <- dat %>% group_by(ANO) %>% count() %>% sum() %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+valueBox(sin, icon = "fa-car-burst", color = "orange")
+```
+
+
+### é o Número Total de Sinistros Fatais em Fortaleza 
+
+```{r}
+fat <- dat %>% group_by(SEVERIDADE) %>% count() %>% filter(SEVERIDADE == "Fatal") %>% ungroup() %>% select(n) %>% sum() %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+valueBox(fat, icon = "fa-skull-crossbones", color = "red")
+```
+
+
+### é o Número Total de Sinistros com Vítimas Feridas em Fortaleza 
+
+```{r}
+fer <- dat %>% group_by(SEVERIDADE) %>% count() %>% filter(SEVERIDADE == "Ferido") %>% ungroup() %>% select(n) %>% sum() %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+valueBox(fer, icon = "fa-user-injured", color = "yellow")
+```
+
+
+### é o Número Total de Sinistros com Vítimas Ilesas em Fortaleza 
+
+```{r}
+ile <- dat %>% group_by(SEVERIDADE) %>% count() %>% filter(SEVERIDADE == "Ileso") %>% ungroup() %>% select(n) %>% sum() %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+valueBox(ile, icon = "fa-person-walking", color = "green")
+```
+
+
+Row
+-----------------------------------------------------------------------
+
+### Série Histórica das Ocorrências de Sinistros
+
+```{r}
+dat %>% group_by(ANO) %>% count() %>% ggplot(aes(ANO, n)) + geom_bar(stat = "identity", position = position_dodge(), fill="cornflowerblue") +
+     labs(title = "Série Histórica das Ocorrências de Sinistros de Trânsito em Fortaleza", y="Sinistros", caption = "AMC") +
+     theme(plot.title = element_text(hjust = 0.5, size = 12),
+    axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1)) +
+     scale_x_continuous(breaks=c(2015:2023)) 
+```
+
+
+### Série Histórica das Ocorrências de Sinistros de Trânsito
+
+```{r}
+dat %>% filter(SEVERIDADE != "Não informado") %>%  group_by(ANO, MES) %>% count()  %>% ggplot(aes(x = MES, y = n, color = as.factor(ANO), group = ANO)) +
+  geom_line() +  scale_x_continuous(breaks=c(1:12)) + #facet_wrap(~SEVERIDADE, scales = "free", ncol = 3)+
+  labs(title = "Série Histórica das Ocorrências de Sinistros de Trânsito em Fortaleza", #subtitle = "Por Ano e Severidade", 
+  y="", color="ANO", caption = "AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1))
+
+```
+
+Ocorrências por Dia da Semana e Hora {data-icon="fa-calendar-days"}
+=====================================
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Ocorrências com Vítimas Fatais
+
+
+```{r, fig.width=10}
+
+sel <- dat %>% filter(SEVERIDADE != "Não informado") %>% select(ANO,HORA, Weekday, SEVERIDADE) 
+
+sel <- sel %>% mutate(Weekday = factor(Weekday, levels = c("seg", "ter", "qua", "qui", "sex", "sáb", "dom")))
+
+sel %>%  mutate(HORA = round(as.numeric(times(sel$HORA))*24), 0)  %>% filter(SEVERIDADE == "Fatal") %>%  group_by(ANO,HORA, Weekday) %>% count() %>% 
+  ggplot(aes(x = HORA, y= Weekday, fill = n)) +
+  geom_tile(colour = "white", na.rm = T) +
+  scale_fill_distiller(palette =  "YlOrRd", direction=1) +
+  scale_x_continuous(breaks = 0:24) +
+  labs(title = "Mapa de Calor dos Totais de Ocorrências por Dia da Semana e Hora",
+       subtitle = "Vítimas Fatais", fill = "Nr de Ocorrências")  + 
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12),
+    plot.subtitle = element_text(hjust = 0.5, size = 10),
+    axis.text.x = element_text(angle = 0, size = 6),
+    legend.position = "bottom",
+    legend.key.width = unit(1, "cm"),
+    legend.title.position = "top",
+    legend.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),
+    plot.margin = unit(c(1, 1, 0, 0), "cm")
+  ) + coord_equal() + facet_wrap(~ANO) 
+
+```
+
+
+### Ocorrências com Vítimas Feridas
+
+```{r, fig.width=10}
+
+sel %>%  mutate(HORA = round(as.numeric(times(sel$HORA))*24), 0)  %>% filter(SEVERIDADE == "Ferido") %>%  group_by(ANO,HORA, Weekday) %>% count() %>% 
+  ggplot(aes(x = HORA, y= Weekday, fill = n)) +
+  geom_tile(colour = "white", na.rm = T) +
+  scale_fill_distiller(palette =  "YlOrRd", direction=1) +
+  scale_x_continuous(breaks = 0:24) +
+  labs(title = "Mapa de Calor dos Totais de Ocorrências por Dia da Semana e Hora", 
+       subtitle = "Vítimas Feridas", fill = "Nr de Ocorrências")  + 
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12),
+    plot.subtitle = element_text(hjust = 0.5, size = 10),
+    axis.text.x = element_text(angle = 0, size = 6),
+    legend.position = "bottom",
+    legend.key.width = unit(1, "cm"),
+    legend.title.position = "top",
+    legend.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),
+    plot.margin = unit(c(1, 1, 0, 0), "cm")
+  ) + coord_equal() + facet_wrap(~ANO) 
+
+```
+
+
+### Ocorrências com Vítimas Ilesas
+
+```{r, fig.width=10}
+
+sel %>%  mutate(HORA = round(as.numeric(times(sel$HORA))*24), 0)  %>% filter(SEVERIDADE == "Ileso") %>%  group_by(ANO,HORA, Weekday) %>% count() %>% 
+  ggplot(aes(x = HORA, y= Weekday, fill = n)) +
+  geom_tile(colour = "white", na.rm = T) +
+  scale_fill_distiller(palette =  "YlOrRd", direction=1) +
+  scale_x_continuous(breaks = 0:24) +
+  labs(title = "Mapa de Calor dos Totais de Ocorrências por Dia da Semana e Hora", 
+       subtitle = "Vítimas Ilesas", fill = "Nr de Ocorrências")  + 
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12),
+    plot.subtitle = element_text(hjust = 0.5, size = 10),
+    axis.text.x = element_text(angle = 0, size = 6),
+    legend.position = "bottom",
+    legend.key.width = unit(1, "cm"),
+    legend.title.position = "top",
+    legend.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),
+    plot.margin = unit(c(1, 1, 0, 0), "cm")
+  ) + coord_equal() + facet_wrap(~ANO) 
+
+```
+
+
+
+
+
+
+
+Distribuição Espaço-Temporal {data-icon="fa-map-location-dot"}
+=====================================
+
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+```{r}
+dat_geo <- read_xlsx("E:\\Docs\\Mestrado_Petran\\dat_geo_atualizado_01Jun2024.xlsx")
+```
+
+
+### Distribuição Espacial dos Sinistros com Vítimas Fatais
+
+```{r}
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort, color = "black", fill = NA, inherit.aes = FALSE) +
+  #geom_point(data =  dat_geo %>% filter(SEVERIDADE == "Fatal"), aes(x = LONGITUDE, y = LATITUDE), color = "red") +
+  labs(title = "Sinistros de Trânsito com vítimas fatais em Fortaleza", caption = "Fonte: AMC", fill = "Ocorrências") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0)) +
+  stat_density2d(data=dat_geo %>% filter(SEVERIDADE == "Fatal"),  aes(x=LONGITUDE, y= LATITUDE, fill=after_stat(level)), geom="polygon") +
+  scale_fill_gradientn(colours=rev(brewer.pal(7, "Spectral"))) +
+  facet_wrap(~ANO, nrow = 3)
+
+
+
+```
+
+### Distribuição Espacial dos Sinistros com Vítimas Feridas
+
+```{r}
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort, color = "black", fill = NA, inherit.aes = FALSE) +
+  labs(title = "Sinistros de Trânsito com vítimas feridas em Fortaleza", caption = "Fonte: AMC", fill = "Ocorrências") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0)) +
+  #geom_point(data =  dat_geo %>% filter(SEVERIDADE == "Ferido"), aes(x = LONGITUDE, y = LATITUDE), color = "red") +
+  stat_density2d(data=dat_geo %>% filter(SEVERIDADE == "Ferido"),  aes(x=LONGITUDE, y= LATITUDE, fill=after_stat(level)), geom="polygon") +
+  scale_fill_gradientn(colours=rev(brewer.pal(7, "Spectral"))) +
+  facet_wrap(~ANO, nrow = 3)
+
+
+
+```
+
+### Distribuição Espacial dos Sinistros com Vítimas Ilesas
+
+```{r}
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort, color = "black", fill = NA, inherit.aes = FALSE) +
+  labs(title = "Sinistros de Trânsito com vítimas ilesas em Fortaleza", caption = "Fonte: AMC", fill = "Ocorrências") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0)) +
+  #geom_point(data =  dat_geo %>% filter(SEVERIDADE == "Ileso"), aes(x = LONGITUDE, y = LATITUDE), color = "green") +
+  stat_density2d(data=dat_geo %>% filter(SEVERIDADE == "Ileso"),  aes(x=LONGITUDE, y= LATITUDE, fill=after_stat(level)), geom="polygon") +
+  scale_fill_gradientn(colours=rev(brewer.pal(7, "Spectral"))) +
+  facet_wrap(~ANO, nrow = 3)
+
+```
+
+
+Vias Implantadas {data-icon="fa-road-circle-check"}
+=====================================
+
+```{r}
+
+imp <- read_excel("E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\ReadequacaoVelocidade_Vias_atual_24Mar24.xlsx")
+```
+
+Row
+-----------------------------------------------------------------------
+
+### é o Número de Vias Implantadas
+
+```{r}
+vias <- nrow(imp)  %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+valueBox(vias, icon = "fa-road-circle-check", color = "greenyellow")
+
+```
+
+### é a Menor Extensão das Vias Implantadas
+
+
+```{r}
+min_via <- imp %>% select(Extens_km) %>% min()  %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+valueBox(paste0(min_via, " Km"), icon = "fa-arrow-down", color = htmltools::parseCssColors("navy"))
+
+```
+
+### é a Extensão Média das Vias Implantadas
+
+
+```{r}
+media_via <- round((imp %>% select(Extens_km) %>% sum())/nrow(imp), 2)
+
+media_via <- media_via %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+
+valueBox(paste0(media_via, " Km"), icon = "fa-chart-line", color = "lime")
+
+```
+
+### é a Maior Extensão das Vias Implantadas
+
+
+```{r}
+max_via <- imp %>% select(Extens_km) %>% max()  %>% format(nsmall=2, big.mark=".", decimal.mark = ",")
+
+valueBox(paste0(max_via, " Km"), icon = "fa-arrow-up", color = "maroon")
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Distribuição das Vias Implatadas por Ano
+
+```{r}
+
+imp <- read_excel("E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\ReadequacaoVelocidade_Vias_atual_24Mar24.xlsx")
+
+ANO <- 2022
+n <- 0
+
+falta <- data.frame(ANO, n)
+
+tab_imp <- imp %>% group_by(ANO) %>% count() %>% bind_rows(falta) %>% arrange(ANO)
+
+tab_imp %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cornflowerblue") +
+  scale_x_continuous(breaks = seq(min(imp$ANO), max(imp$ANO), 1)) +
+  annotate("text", x = tab_imp$ANO, y = tab_imp$n , label = tab_imp$n, size = 3) +
+  labs(title = "Quantidade de Vias Urbanas com Readequação de Velocidade por Ano", y = "", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 1))
+
+ 
+```
+
+
+### Distribuição Espacial das Vias Implatadas por Ano
+
+```{r}
+vias <- st_read(
+  "E:\\Docs\\Mestrado_Petran\\Arquivos_Fortaleza_em_Mapas\\GestaoVelocidade.gpkg",
+  layer = "Vias_50km", quiet = TRUE)
+
+vias <- vias %>% mutate(ANO = as.factor(Ano_implan))
+
+g + xlab("Longitude") + ylab("Latitude") +
+  geom_sf(data = fort, color = "black", fill = NA, inherit.aes = FALSE) +
+  geom_sf(data = vias, aes(color = ANO), lwd = 2,  fill = NA, inherit.aes = FALSE) +
+  labs(title = "Mapa do Município de Fortaleza", subtitle = "Vias Implementadas", caption = "Fonte: AMC") + 
+  coord_sf(datum = st_crs(fort)) +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) +
+  scale_x_continuous(limits = c(lon1, lon2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "W"), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(lat1, lat2), labels = function(x) paste0(format(x, nsmall = 2), '\u00B0', "N"), expand = c(0, 0))
+
+
+```
+
+
+Fatores Influenciadores {data-icon="fa-diagram-project"}
+=====================================
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+### Natureza
+
+```{r}
+
+dat %>% group_by(ANO, NATUREZA) %>% count() %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros segundo a Natureza", y="", caption = "Fonte: AMC") + theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) + facet_wrap(~NATUREZA, scales = "free", ncol = 5)
+  
+   
+
+```
+
+### Tipo de Cruzamento
+
+```{r}
+
+dat %>% group_by(ANO, TIPOCRUZAMENTO) %>% count() %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) + 
+  labs(title = "Número de Sinistros segundo o Tipo de Cruzamento", y="", x = "TIPO DE CRUZAMENTO", caption = "Fonte: AMC") + theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) + facet_wrap(~TIPOCRUZAMENTO, scales = "free")
+  
+
+```
+
+### Controle de Tráfego
+
+```{r}
+
+dat %>% group_by(ANO, CONTROLETRAFEGO) %>% count() %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) + 
+  labs(title = "Número de Sinistros segundo o Controle de Tráfego", y="", x = "CONTROLE DE TRÁFEGO", caption = "Fonte: AMC") + theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) + facet_wrap(~CONTROLETRAFEGO, scales = "free", nrow = 2)
+  
+```
+
+
+### Iluminação
+
+```{r}
+
+dat %>% group_by(ANO, ILUMINAÇÃO) %>% count() %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) + 
+  labs(title = "Número de Sinistros segundo a Iluminição", y="", x = "ILUMINAÇÃO", caption = "Fonte: AMC") + theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) + facet_wrap(~ILUMINAÇÃO, scales = "free", nrow=2)
+
+```
+
+### Tempo
+
+```{r}
+
+dat %>% group_by(ANO, TEMPO) %>% count() %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity", position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) + 
+  labs(title = "Número de Sinistros segundo o Tempo", y="", x = "TEMPO", caption = "Fonte: AMC") + theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) + facet_wrap(~TEMPO, scales = "free", nrow = 1)
+
+```
+
+
+### Superfície da Pista
+
+```{r}
+
+dat %>% group_by(ANO, SUPERFÍCIE.DA.PISTA) %>% count() %>% ggplot(aes(x = ANO, y = n)) + geom_bar(stat = "identity", position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) + 
+  labs(title = "Número de Sinistros segundo a Superfície da Pista", y="", x = "Superfície da Pista", caption = "Fonte: AMC") + 
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 10),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8),
+        axis.text.y = element_text(size = 8)) + facet_wrap(~SUPERFÍCIE.DA.PISTA, scales = "free")
+
+```
+
+
+Perfil das Vítimas {data-icon="fa-chart-simple"}
+=====================================
+
+```{r}
+#vitimas_dat <- read_excel("E:\\Docs\\Mestrado_Petran\\sinistros_fortaleza_atualizado_24Jun2024_vitimas.xlsx")
+
+vitimas_dat <- read_excel("E:\\Docs\\Mestrado_Petran\\sinistros_fortaleza_atualizado_29Jul2024_vitimas.xlsx")
+
+
+ini <- 0
+k <- 11
+br <- 0
+h <- 10
+
+for(i in 1:(k+1)){
+  br[i] <- round(ini, 3)
+  ini <- ini + h
+}
+
+lev <- 0
+
+for(i in 1:length(br)-1){
+  lev[i] <- paste0(br[i]," - ",br[i + 1])
+}
+
+#lev
+
+vitimas_dat <- vitimas_dat %>% mutate(Classes = factor(Classes, levels = lev))
+
+#glimpse(vitimas_dat)
+
+```
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+    
+### Distribuição das Vitimas de Sinistros de Trânsito
+    
+```{r, fig.width= 8}
+
+vitimas_dat %>% filter(!Classes == "Não informado" & !SEXO == "Não informado") %>% group_by(ANO, SEXO, Classes) %>% count() %>% 
+  ggplot(aes(x= SEXO, y = n, fill = Classes)) + geom_bar(stat = "identity", position = position_dodge()) + facet_wrap(~ANO) +
+  labs(title = "Distribuição das Vitimas de Sinistros de Trânsito", subtitle = "Por Feixa Etária, Ano e Sexo", y = "", x = "", fill = "Fx Etária", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        plot.subtitle = element_text(hjust = 0.5, size = 8))
+
+```
+ 
+### Número de Sinistros de Trânsito por Tipo de Usuário
+    
+```{r, fig.width= 8}
+vitimas_dat %>% filter(TIPO != "Não informado") %>% group_by(ANO, TIPO) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) + 
+  labs(title = "Número de Sinistros de Trânsito por Tipo de Usuário", y = "", 
+       caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~TIPO, scales = "free")
+
+``` 
+
+
+### Número de Sinistros de Trânsito por Gravidade da Lesão
+
+```{r, fig.width= 8}
+
+vitimas_dat %>% filter(GRAVIDADE.DA.LESÃO != "Não informado") %>% group_by(ANO, GRAVIDADE.DA.LESÃO) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Gravidade da Lesão", y = "", 
+       caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~GRAVIDADE.DA.LESÃO, scales = "free")
+
+```
+
+
+### Número de Sinistros de Trânsito por Uso de Cinto ou Capacete
+
+```{r, fig.width= 8}
+vitimas_dat %>% group_by(ANO, USAVA.CINTO.OU.CAPACETE) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") +  scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Uso de Cinto ou Capacete", y = "", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~USAVA.CINTO.OU.CAPACETE, scales = "free")
+
+
+```
+
+
+Veículos Envolvidos  {data-icon="fa-cars"}
+=====================================
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+
+```{r}
+
+veic_dat <- read_xlsx("E:\\Docs\\Mestrado_Petran\\sinistros_fortaleza_atualizado_23Jun2024_veiculos.xlsx")
+```
+
+
+### Tipo de Veículo
+
+```{r}
+veic_dat %>% filter(SEGMENTO != "Não informado") %>% group_by(ANO, SEGMENTO) %>% count() %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Tipo de Veículo", y = "", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~SEGMENTO, scales = "free")
+
+```
+
+
+### Categoria do condutor
+
+```{r}
+veic_dat  %>% filter(CATEGORIA != "Não Informada") %>% group_by(ANO, CATEGORIA) %>% count()  %>% ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Categoria de Veículo", y = "", color = "CATEGORIA", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+         axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~CATEGORIA, scales = "free")
+
+```
+
+### Estado de Manutenção do Veículo
+
+```{r}
+veic_dat %>% group_by(ANO, DANIFICADO) %>% count()  %>% ggplot(aes(x = ANO, y = n)) + geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") +  scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Veículo Danificado", y = "", color = "CATEGORIA", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~DANIFICADO, scales = "free")
+```
+
+### Tipo de Manobra
+
+```{r, out.width="100%"}
+veic_dat %>% filter(MANOBRA != "NÃO INFORMADA") %>% group_by(ANO,MANOBRA) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Tipo de Manobra", y = "", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~MANOBRA, scales = "free")
+
+```
+
+
+
+ 
+
+Condições das Vias  {data-icon="fa-road-lock"}
+=====================================
+
+```{r}
+vias_dat <- read_excel("E:\\Docs\\Mestrado_Petran\\sinistros_fortaleza_atualizado_24Jun2024_vias.xlsx")
+
+```
+
+Row {.tabset .tabset-fade}
+-------------------------------------
+ 
+
+### Sinalização Horizontal
+
+```{r} 
+ vias_dat %>% filter(SINALIZAÇÃO.HORIZONTAL  != "Não informado") %>% group_by(ANO, SINALIZAÇÃO.HORIZONTAL) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Sinalização Horizontal", y = "", color = "Sinalização Horizontal", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~SINALIZAÇÃO.HORIZONTAL, scales = "free")
+
+```
+
+### Sinalização Vertical
+
+```{r}
+vias_dat %>% filter(SINALIZAÇÃO.VERTICAL  != "Não informado") %>% group_by(ANO, SINALIZAÇÃO.VERTICAL) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Sinalização Vertical", y = "",        color = "Sinalização Horizontal", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~SINALIZAÇÃO.VERTICAL, scales = "free")
+
+```
+
+### Alinhamento Horizontal
+
+```{r}
+vias_dat %>% filter(ALINHAMENTO.HORIZONTAL != "Não informado") %>% group_by(ANO, ALINHAMENTO.HORIZONTAL) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Alinhamento Horizontal", y = "", color = "Alinhamento Horizontal", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~ALINHAMENTO.HORIZONTAL, scales = "free")
+
+```
+
+### Alinhamento Vertical
+
+```{r}
+vias_dat %>% filter(ALINHAMENTO.VERTICAL != "Não informado") %>% group_by(ANO, ALINHAMENTO.VERTICAL) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) + 
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Alinhamento Vertical", y = "",
+       color = "Alinhamento Vertical", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~ALINHAMENTO.VERTICAL, scales = "free")
+
+```
+
+
+### Obras de Arte
+
+```{r}
+vias_dat %>% filter(OBRA.DE.ARTE != "Não informado") %>% group_by(ANO, OBRA.DE.ARTE) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+   geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Obra de Arte", y = "", 
+       color = "Obra de Arte", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~OBRA.DE.ARTE, scales = "free")
+```
+
+### Obras na Pista
+
+```{r}
+vias_dat %>% filter(OBRAS.NA.PISTA != "Não informado") %>% group_by(ANO, OBRAS.NA.PISTA) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Obras na Pista", y = "", 
+       color = "Obras na Pista", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~OBRAS.NA.PISTA, scales = "free")
+
+```
+
+### Tipo de Pavimento
+
+```{r}
+vias_dat %>% filter(TIPO.DO.PAVIMENTO != "Não informado") %>% group_by(ANO, TIPO.DO.PAVIMENTO) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Tipo de Pavimento", y = "", 
+       color = "Tipo de Pavimento", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~TIPO.DO.PAVIMENTO, scales = "free")
+
+```
+
+### Número de Faixas
+
+```{r}
+vias_dat %>% filter(FAIXA.PARA.SENTIDO != "Não informado") %>% group_by(ANO, FAIXA.PARA.SENTIDO) %>% count()  %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Faixa para Sentido", y = "", 
+       color = "Faixas para Sentido", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+         axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~FAIXA.PARA.SENTIDO, scales = "free")
+
+```
+
+### Condições da Pista
+
+```{r}
+vias_dat %>% filter(CONDIÇÃO.DA.PISTA != "Não informado") %>% group_by(ANO, CONDIÇÃO.DA.PISTA) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Condição da Pista", y = "", 
+       color = "Condição da Pista", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+         axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~CONDIÇÃO.DA.PISTA, scales = "free")
+
+```
+
+### Condições da Calçada
+
+```{r}
+vias_dat %>% filter(CONDIÇÃO.DA.CALÇADA != "Não informado" ) %>% group_by(ANO, CONDIÇÃO.DA.CALÇADA) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Condição da Calçada", y = "", 
+       color = "Condição da Calçada", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~CONDIÇÃO.DA.CALÇADA, scale = "free")
+
+```
+
+### Separação Central da Via
+
+```{r}
+vias_dat %>% filter(SEPARAÇÃO.CENTRAL != "Não informado") %>% group_by(ANO, SEPARAÇÃO.CENTRAL) %>% count() %>% 
+  ggplot(aes(x = ANO, y = n)) +
+  geom_bar(stat = "identity",position = position_dodge(), fill = "cornflowerblue") + scale_x_continuous(breaks = 2015:2023) +
+  labs(title = "Número de Sinistros de Trânsito por Separação Central", y = "", 
+       color = "Separação Central", caption = "Fonte: AMC") +
+  theme(plot.title = element_text(hjust = 0.5, size = 12),
+        axis.text.x = element_text(angle = 90,  vjust = 0.5, hjust = 1, size = 8)) + facet_wrap(~SEPARAÇÃO.CENTRAL, scales = "free")
+
+```
+
